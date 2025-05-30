@@ -1,0 +1,13 @@
+OCR API/vision-api.json
+# Ignore service account keys
+*.json
+!package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+dist/
