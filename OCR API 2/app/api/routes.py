@@ -1,5 +1,5 @@
 from app.socket import sio
-from fastapi import APIRouter, UploadFile, File, Request, Form
+from fastapi import APIRouter, UploadFile, File
 from app.services.ocr_utils import run_ocr, classify_category
 from app.services.tax_invoice import extract_tax_invoice_fields
 from app.services.lr_copy import extract_lr_copy_fields
@@ -11,10 +11,12 @@ import time
 import shutil
 import tempfile
 from pdf2image import convert_from_path
+from fastapi import Request, Form
 
 router = APIRouter()
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"D:\OCR with Vision\OCR API 2\app\services\vision-api.json"
+
 
 @router.post("/extractText")
 async def extract_text(
@@ -22,18 +24,16 @@ async def extract_text(
     images: list[UploadFile] = File(...),
     socket_id: str = Form(None)
 ):
+
+    results = []
+
     for uploaded_file in images:
         file_name = uploaded_file.filename
-        is_pdf = file_name.lower().endswith(".pdf")
-
-        # 📡 Emit file-level processing start
         await sio.emit("fileStatus", {
             "status": "processing",
             "fileName": file_name,
             "parent": None,
-            "pdf": is_pdf,
-            "page": 0,
-            "result": None
+            "pdf": file_name.lower().endswith(".pdf")
         }, to=socket_id)
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_name.split('.')[-1]}") as tmp:
@@ -42,20 +42,19 @@ async def extract_text(
 
         start_time = time.time()
 
-        if is_pdf:
+        if file_name.lower().endswith(".pdf"):
             try:
                 pages = convert_from_path(tmp_path, dpi=300)
+                page_results = []
 
                 for i, page in enumerate(pages):
-                    page_number = i + 1
                     await sio.emit("fileStatus", {
                         "status": "processing",
                         "fileName": file_name,
+                        "page": i + 1,
                         "parent": None,
-                        "pdf": True,
-                        "page": page_number,
-                        "result": None
-                    }, to=socket_id)
+                        "pdf": True
+                    })
 
                     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_img:
                         temp_img_path = temp_img.name
@@ -64,55 +63,53 @@ async def extract_text(
                     text = run_ocr(temp_img_path)
                     os.remove(temp_img_path)
 
-                    result = process_text(text, f"{file_name} [Page {page_number}]", start_time)
+                    result = process_text(text, f"{file_name} [Page {i+1}]", start_time)
+                    if result:
+                        page_results.append(result)
 
-                    await sio.emit("fileStatus", {
-                        "status": "completed",
-                        "fileName": file_name,
-                        "parent": None,
-                        "pdf": True,
-                        "page": page_number,
-                        "result": result
-                    }, to=socket_id)
+                        # ✅ EMIT COMPLETED EVENT PER PAGE
+                        await sio.emit("fileStatus", {
+                            "status": "completed",
+                            "fileName": file_name,
+                            "page": i + 1,
+                            "result": result,
+                            "parent": None,
+                            "pdf": True
+                        })
+
 
             except Exception as e:
+                results.append({"file": file_name, "error": str(e)})
                 await sio.emit("fileStatus", {
                     "status": "failed",
                     "fileName": file_name,
-                    "parent": None,
-                    "pdf": True,
-                    "page": 0,
-                    "result": str(e)
+                    "error": str(e)
                 }, to=socket_id)
 
         else:
             try:
                 text = run_ocr(tmp_path)
                 result = process_text(text, file_name, start_time)
-
+                if result:
+                    results.append({
+                        "file": file_name,
+                        "result": result
+                    })
                 await sio.emit("fileStatus", {
-                    "status": "completed",
-                    "fileName": file_name,
-                    "parent": None,
-                    "pdf": False,
-                    "page": 0,
-                    "result": result
+                    "status": "done",
+                    "fileName": file_name
                 }, to=socket_id)
-
             except Exception as e:
+                results.append({"file": file_name, "error": str(e)})
                 await sio.emit("fileStatus", {
                     "status": "failed",
                     "fileName": file_name,
-                    "parent": None,
-                    "pdf": False,
-                    "page": 0,
-                    "result": str(e)
+                    "error": str(e)
                 }, to=socket_id)
 
         os.remove(tmp_path)
 
-    return {"message": "Files are being processed"}
-
+    return {"status": "success", "results": results}
 
 
 def process_text(text, filename, start_time):
