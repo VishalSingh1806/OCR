@@ -13,7 +13,6 @@ import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import downloadIcon from "./assets/icons/download.png";
 import { downloadCompleteCSV, downloadCompletePDF } from "./utils/download";
-// formData.append("socket_id", socket.id);
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
 
@@ -40,11 +39,11 @@ function App() {
   const [displayFiles, setDisplayFiles] = useState([]);
 
   // const backendURL = "https://ocr.recircle.in/api";
-  const backendURL = "http://localhost:3000";
+  const backendURL = "http://localhost:8000";
 
   useEffect(() => {
     // const newSocket = io("https://ocr.recircle.in");
-    const newSocket = io("http://localhost:3000");
+  const newSocket = io("http://localhost:8000");
     setSocket(newSocket);
 
     return () => {
@@ -472,20 +471,13 @@ function App() {
         }
       });
 
-      // fetch(`${backendURL}/extractText`, {
-      //   method: "POST",
-      //   body: formData,
-      //   headers: {
-      //     "socket-id": socket.id,
-      //   },
-      // })
-      formData.append("socket_id", socket.id);  // Add this line
-
       fetch(`${backendURL}/extractText`, {
         method: "POST",
-        body: formData  // Do NOT set headers manually
+        body: formData,
+        headers: {
+          "socket-id": socket.id,
+        },
       })
-
         .then((response) => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

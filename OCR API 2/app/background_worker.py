@@ -12,23 +12,53 @@ from app.services.delivery_challan import extract_delivery_challan_fields
 from app.services.weighbridge import extract_weighbridge_fields
 from app.services.e_way_bill import extract_eway_bill_fields
 
+
+# Create a global semaphore to cap total concurrent Vision calls (e.g. max 4)
+_SEMAPHORE = asyncio.Semaphore(4)
+
+
 async def worker_loop():
     while True:
         await trigger_all_queues()
         await asyncio.sleep(0.1)
 
 async def trigger_all_queues():
+    # For each connected socket, pick *one* job at most, spawn a task,
+    # then continue to the next socket. This prevents one large queue from hogging all slots.
     for sid, queue_data in list(user_queues.items()):
         if queue_data["isProcessing"] or not queue_data["queue"]:
             continue
 
+        # Lock this socket so no other coroutine picks its next job until this finishes
         queue_data["isProcessing"] = True
-        try:
-            while queue_data["queue"]:
-                job = queue_data["queue"].pop(0)
-                await process_job(sid, job)
-        finally:
-            queue_data["isProcessing"] = False
+
+        # Pop exactly ONE job
+        job = queue_data["queue"].pop(0)
+
+        # Schedule it as an independent task; once done, clear isProcessing
+        asyncio.create_task(_run_job_and_clear_flag(sid, job))
+
+
+async def _run_job_and_clear_flag(sid, job):
+    try:
+        await process_job(sid, job)
+    finally:
+        # Mark this socket as ready for its next job
+        user_queues[sid]["isProcessing"] = False
+
+
+# async def trigger_all_queues():
+#     for sid, queue_data in list(user_queues.items()):
+#         if queue_data["isProcessing"] or not queue_data["queue"]:
+#             continue
+
+#         queue_data["isProcessing"] = True
+#         try:
+#             while queue_data["queue"]:
+#                 job = queue_data["queue"].pop(0)
+#                 await process_job(sid, job)
+#         finally:
+#             queue_data["isProcessing"] = False
 
 async def trigger_queue_processing(sid):
     queue_data = user_queues.get(sid)
@@ -42,11 +72,13 @@ async def trigger_queue_processing(sid):
     finally:
         queue_data["isProcessing"] = False
 
+
 async def process_job(sid, job):
     file_name = os.path.basename(job["fileName"])
-    parent = job.get("parent")
-    is_pdf = job.get("is_pdf", False)
+    parent    = job.get("parent")
+    is_pdf    = job.get("is_pdf", False)
 
+    # Notify client that this page is now “processing”
     await sio.emit("fileStatus", {
         "status": "processing",
         "fileName": file_name,
@@ -58,44 +90,101 @@ async def process_job(sid, job):
 
     start_time = time.time()
     try:
-        text = run_ocr(job["path"])
-        result = process_text(text, file_name, start_time)
+        # Acquire a slot so that at most 4 jobs call Vision at once
+        async with _SEMAPHORE:
+            loop = asyncio.get_running_loop()
+            # 1) Offload run_ocr to thread‐pool
+            text = await loop.run_in_executor(None, run_ocr, job["path"])
+            # 2) Offload processing (classification + field extraction) as well
+            result = await loop.run_in_executor(None, process_text, text, file_name, start_time)
+
+        # Send “completed” event with extracted fields
         await sio.emit("fileStatus", {
-            "status": "completed",
+            "status":   "completed",
             "fileName": file_name,
-            "parent": parent,
-            "pdf": is_pdf,
-            "page": job.get("page", 0),
-            "result": result
+            "parent":   parent,
+            "pdf":      is_pdf,
+            "page":     job.get("page", 0),
+            "result":   result
         }, room=sid)
+
     except Exception as e:
+        # On any failure, send a “failed” event
         await sio.emit("fileStatus", {
-            "status": "failed",
+            "status":   "failed",
             "fileName": file_name,
-            "parent": parent,
-            "pdf": is_pdf,
-            "page": job.get("page", 0),
-            "result": str(e)
+            "parent":   parent,
+            "pdf":      is_pdf,
+            "page":     job.get("page", 0),
+            "result":   str(e)
         }, room=sid)
+
     finally:
+        # Always delete the temp image file
         try:
             os.remove(job["path"])
         except Exception:
             pass
 
+# async def process_job(sid, job):
+#     file_name = os.path.basename(job["fileName"])
+#     parent = job.get("parent")
+#     is_pdf = job.get("is_pdf", False)
+
+#     await sio.emit("fileStatus", {
+#         "status": "processing",
+#         "fileName": file_name,
+#         "parent": parent,
+#         "pdf": is_pdf,
+#         "page": job.get("page", 0),
+#         "result": None
+#     }, room=sid)
+
+#     start_time = time.time()
+#     try:
+#         text = run_ocr(job["path"])
+#         result = process_text(text, file_name, start_time)
+#         await sio.emit("fileStatus", {
+#             "status": "completed",
+#             "fileName": file_name,
+#             "parent": parent,
+#             "pdf": is_pdf,
+#             "page": job.get("page", 0),
+#             "result": result
+#         }, room=sid)
+#     except Exception as e:
+#         await sio.emit("fileStatus", {
+#             "status": "failed",
+#             "fileName": file_name,
+#             "parent": parent,
+#             "pdf": is_pdf,
+#             "page": job.get("page", 0),
+#             "result": str(e)
+#         }, room=sid)
+#     finally:
+#         try:
+#             os.remove(job["path"])
+#         except Exception:
+#             pass
+
 def process_text(text, filename, start_time):
-    category = classify_category(text)
+    # 1) Normalize OCR’d text to plain ASCII lowercase
+    from app.services.ocr_utils import normalize_ascii
+    normalized = normalize_ascii(text)
+
+    # 2) Classify based on normalized text
+    category = classify_category(normalized)
 
     if category == "Tax Invoice":
-        extracted = extract_tax_invoice_fields(text)
+        extracted = extract_tax_invoice_fields(normalized)
     elif category == "E Way Bill":
-        extracted = extract_eway_bill_fields(text)
+        extracted = extract_eway_bill_fields(normalized)
     elif category == "LR Copy":
-        extracted = extract_lr_copy_fields(text)
+        extracted = extract_lr_copy_fields(normalized)
     elif category == "Delivery Challan":
-        extracted = extract_delivery_challan_fields(text)
+        extracted = extract_delivery_challan_fields(normalized)
     elif category == "Weighbridge":
-        extracted = extract_weighbridge_fields(text)
+        extracted = extract_weighbridge_fields(normalized)
     else:
         return {"file": filename, "error": f"Unrecognized category: {category}"}
 
