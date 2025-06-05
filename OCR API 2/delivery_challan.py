@@ -1,6 +1,6 @@
 # extractors/delivery_challan.py
 import re
-from app.services.ocr_utils import debug_print_lines
+from ocr_utils import debug_print_lines
 
 def extract_delivery_challan_fields(text):
     # debug_print_lines(text, "Delivery Challan: Line-by-Line OCR Output")

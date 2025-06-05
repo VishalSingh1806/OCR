@@ -1,10 +1,10 @@
 import re
-from app.services.ocr_utils import normalize_ascii, debug_print_lines
+from ocr_utils import normalize_ascii, debug_print_lines
 
 def extract_eway_bill_fields(text):
     print("\n🧾 Processing: E-Way Bill")
     lines = text.splitlines()
-    debug_print_lines(text, "E-Way Bill: Line-by-Line OCR Output")
+    # debug_print_lines(text, "E-Way Bill: Line-by-Line OCR Output")
     result = {"Category": "E Way Bill"}
 
     def find(pattern, flags=re.IGNORECASE):

@@ -1,5 +1,5 @@
 import re
-from app.services.ocr_utils import (normalize_ascii,
+from ocr_utils import (normalize_ascii,
                        extract_consignor_consignee_blocks,
                        extract_states_from_blocks,
                        extract_consignment_no_using_date_proximity,
@@ -40,11 +40,11 @@ def extract_lr_copy_fields(text):
         if numeric_vals:
             qty_val = f"{max(numeric_vals):,.3f} MT"
 
-        print("📄 Consignment No.:", consignment_no)
-        print("📮 Consignor:", consignor)
-        print("📬 Consignee:", consignee)
-        print("📍 From State:", from_state)
-        print("📍 To State:", to_state)
+        # print("📄 Consignment No.:", consignment_no)
+        # print("📮 Consignor:", consignor)
+        # print("📬 Consignee:", consignee)
+        # print("📍 From State:", from_state)
+        # print("📍 To State:", to_state)
 
     result.update({
         "Vehicle Number": find(vehicle_pattern),

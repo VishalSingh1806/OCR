@@ -1,18 +1,12 @@
 import re
-from app.services.ocr_utils import (
-    debug_print_lines,
-    extract_material_name_from_lines,
-    extract_quantity_from_lines,
-    extract_invoice_number_from_lines,
-)
-
+from ocr_utils import debug_print_lines, extract_material_name_from_lines, extract_quantity_from_lines, extract_invoice_number_from_lines
 
 
 
 def extract_tax_invoice_fields(text):
     print("\n🧾 Processing: Tax Invoice")
 
-    debug_print_lines(text, "Tax Invoice: Line-by-Line OCR Output") 
+    # debug_print_lines(text, "Tax Invoice: Line-by-Line OCR Output") 
     
     result = {"Category": "Tax Invoice"}
 

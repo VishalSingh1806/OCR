@@ -1,33 +1,16 @@
-import io, re, unicodedata
+import io
+import re
+import unicodedata
 from PIL import Image
-from google.cloud import vision
-
-
-# ─── Create a singleton Vision client at import time ───
-_VISION_CLIENT = vision.ImageAnnotatorClient()
 
 def run_ocr(image_path):
-    """
-    Uses a single, cached Vision client (reduces overhead).
-    """
-    client = _VISION_CLIENT
+    from google.cloud import vision  # Import inside function
+    client = vision.ImageAnnotatorClient()  # Initialize here
     with open(image_path, 'rb') as image_file:
         content = image_file.read()
     image = vision.Image(content=content)
     response = client.text_detection(image=image)
-    if response.error.message:
-        # Optionally log or raise on Vision API error:
-        raise RuntimeError(f"Vision API error: {response.error.message}")
-    return response.te
-
-# def run_ocr(image_path):
-#     from google.cloud import vision  # Import inside function
-#     client = vision.ImageAnnotatorClient()  # Initialize here
-#     with open(image_path, 'rb') as image_file:
-#         content = image_file.read()
-#     image = vision.Image(content=content)
-#     response = client.text_detection(image=image)
-#     return response.text_annotations[0].description if response.text_annotations else ""
+    return response.text_annotations[0].description if response.text_annotations else ""
 
 def classify_category(text):
     text = text.lower()
@@ -110,7 +93,7 @@ def normalize_ascii(text):
 #     return "Not found"
 
 def extract_consignment_no_using_date_proximity(lines):
-    print("\n🔍 Smart Consignment No Extraction via proximity")
+    # print("\n🔍 Smart Consignment No Extraction via proximity")
 
     date_index = -1
     # Step 1: locate the line containing the Date
@@ -127,7 +110,7 @@ def extract_consignment_no_using_date_proximity(lines):
                 print(f"✅ Found consignment number at line {j}: '{lines[j].strip()}'")
                 return lines[j].strip()
 
-    print("❌ Consignment number not found near DATE block")
+    # print("❌ Consignment number not found near DATE block")
     return "Not found"
 
 

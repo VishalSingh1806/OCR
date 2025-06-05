@@ -1,10 +1,10 @@
 import re
-from app.services.ocr_utils import debug_print_lines, normalize_ascii
+from ocr_utils import debug_print_lines, normalize_ascii
 
 def extract_weighbridge_fields(text):
     print(" Processing: Weighbridge")
     lines = text.splitlines()
-    debug_print_lines(text, " Weighbridge: Line-by-Line OCR Output")
+    # debug_print_lines(text, " Weighbridge: Line-by-Line OCR Output")
 
     result = {"Category": "Weighbridge"}
 
@@ -43,7 +43,7 @@ def extract_weighbridge_fields(text):
             match = re.search(r"\b[A-Z]{2}\d{2,3}[A-Z]?\s?\d{3,4}\b", combined)
             if match:
                 vehicle_number = match.group().replace(" ", "").strip().upper()
-                print(f"✅ Found vehicle number (pass 1): {vehicle_number}")
+                # print(f"✅ Found vehicle number (pass 1): {vehicle_number}")
 
         # Pass 2: If still not found, handle split-line case like Line 7 = "VEHICLE NO", Line 8 = ": WB738 6961"
         if vehicle_number == "Not found":
@@ -59,7 +59,7 @@ def extract_weighbridge_fields(text):
                     match = re.search(r"\b[A-Z]{2}\d{2,3}[A-Z]?\s?\d{3,4}\b", merged)
                     if match:
                         vehicle_number = match.group().replace(" ", "").strip().upper()
-                        print(f"✅ Found vehicle number (pass 2): {vehicle_number}")
+                        # print(f"✅ Found vehicle number (pass 2): {vehicle_number}")
                         break
         # Pass 3: Scan full document for standalone vehicle-looking patterns or "Carrier No." formats
         if vehicle_number == "Not found":
@@ -70,14 +70,14 @@ def extract_weighbridge_fields(text):
                     match = re.search(r"\b[A-Z]{2}\d{2}[A-Z]{1,3}\d{3,4}\b", clean.upper())
                     if match:
                         vehicle_number = match.group().replace(" ", "").strip().upper()
-                        print(f"✅ Found vehicle number (pass 3a - carrier line): {vehicle_number}")
+                        # print(f"✅ Found vehicle number (pass 3a - carrier line): {vehicle_number}")
                         break
 
                 # Case B: Line *is* the vehicle number (standalone)
                 match = re.fullmatch(r"[A-Z]{2}\d{2}[A-Z]{1,3}\d{3,4}", clean.upper())
                 if match:
                     vehicle_number = match.group().strip().upper()
-                    print(f"✅ Found vehicle number (pass 3b - standalone line): {vehicle_number}")
+                    # print(f"✅ Found vehicle number (pass 3b - standalone line): {vehicle_number}")
                     break
 
 
@@ -113,7 +113,7 @@ def extract_weighbridge_fields(text):
                     match = re.search(r"\d{4,6}", l3)
                     if match:
                         net_weight = f"{int(match.group()) / 1000:.3f} Tons"
-                        print(f"✅ Found net weight (vertical stack): {net_weight}")
+                        # print(f"✅ Found net weight (vertical stack): {net_weight}")
                         break
 
         # ✅ New: inline phrase like "Total Net Weight 12210.00"
@@ -124,7 +124,7 @@ def extract_weighbridge_fields(text):
                     match = re.search(r"\b\d{4,6}(?:\.\d{1,2})?\b", clean_line)
                     if match:
                         net_weight = f"{float(match.group()):,.3f} Tons"
-                        print(f"✅ Found net weight (inline): {net_weight}")
+                        # print(f"✅ Found net weight (inline): {net_weight}")
                         break
 
         # Pass 4: textual fallback
@@ -156,14 +156,14 @@ def extract_weighbridge_fields(text):
             line0 = normalize_ascii(lines[0])
             if 2 <= len(line0.split()) <= 5 and not any(kw in line0 for kw in ["rst", "no", "kg", "wt", "date", "phone", "vehicle"]):
                 name = lines[0].strip().title()
-                print(f"✅ Found name (line 0): {name}")
+                # print(f"✅ Found name (line 0): {name}")
 
         # Case 2: Fallback to line 4 for legacy format slips (like 'Ajanta Weigh Bridge')
         if name == "Not found" and len(lines) > 4:
             line4 = normalize_ascii(lines[4])
             if 2 <= len(line4.split()) <= 5 and not any(kw in line4 for kw in ["gross", "net", "tare", "phone", "bags", "date", "wt", "operator"]):
                 name = lines[4].strip().title()
-                print(f"✅ Found name (line 4 fallback): {name}")
+                # print(f"✅ Found name (line 4 fallback): {name}")
 
 
     result.update({
