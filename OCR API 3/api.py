@@ -66,14 +66,7 @@ def extract_fields_for_category(text: str, category: str) -> dict:
 
 # ─── 7) Per‐image OCR + extraction job ───
 async def process_image_job(sid: str, job: dict):
-    """
-    job dictionary keys:
-      - file_name: str      (basename of the uploaded file, e.g. "1680.pdf")
-      - image_path: str     (temporary JPEG path on disk)
-      - parent: Optional[str]  (subfolder name, if any—e.g. "WB73B6961  30-1")
-      - pdf: bool           (True if this image came from a PDF page)
-      - page: int           (page number if PDF; 0 if standalone image)
-    """
+
     file_name = job["file_name"]
     image_path = job["image_path"]
     parent = job.get("parent", None)
@@ -181,15 +174,7 @@ async def disconnect(sid):
 # ─── 10) HTTP endpoint to accept uploads ───
 @app.post("/extractText")
 async def extract_text(request: Request):
-    """
-    Expects:
-      - A multipart‐form with:
-          • One or more files under key "images"
-          • Zero or more values under "parents[]" (parallel array)
-          • Header "socket-id": the Socket.IO SID (or form‐field "socket_id")
-      - Each “images” item can be a PDF or JPG/PNG.
-      - Returns immediately; results stream back over Socket.IO "fileStatus".
-    """
+
     print("======================================")
     print("[extract_text] → Received new POST /extractText")
     print("   → Raw headers:", dict(request.headers))
