@@ -1,5 +1,5 @@
 import re
-from app.services.ocr_utils import normalize_ascii, debug_print_lines
+from app.services.ocr_utils import normalize_ascii, debug_print_lines, STATE_REGEX
 
 def extract_eway_bill_fields(text):
     print("\n🧾 Processing: E-Way Bill")
@@ -71,15 +71,19 @@ def extract_eway_bill_fields(text):
     for i, line in enumerate(lines):
         norm = normalize_ascii(line)
         if "dispatch from" in norm:
-            for j in range(i, i+5):
-                if j < len(lines) and any(st in lines[j].upper() for st in ["MAHARASHTRA", "GUJARAT", "DELHI", "TAMIL", "KARNATAKA"]):
-                    result["From State"] = lines[j].strip().split()[-1].title()
-                    break
+            for j in range(i, i + 5):
+                if j < len(lines):
+                    match = STATE_REGEX.search(lines[j])
+                    if match:
+                        result["From State"] = match.group(1).title()
+                        break
         if "ship to" in norm:
-            for j in range(i, i+5):
-                if j < len(lines) and any(st in lines[j].upper() for st in ["MAHARASHTRA", "GUJARAT", "DELHI", "TAMIL", "KARNATAKA"]):
-                    result["To State"] = lines[j].strip().split()[-1].title()
-                    break
+            for j in range(i, i + 5):
+                if j < len(lines):
+                    match = STATE_REGEX.search(lines[j])
+                    if match:
+                        result["To State"] = match.group(1).title()
+                        break
 
     # 6️⃣ Material name / Plastic Category
     material_line = find(r"Product\s+Name\s+&\s+Desc[^\n]*\n\s*([A-Z\s&]+)")

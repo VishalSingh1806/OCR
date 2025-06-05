@@ -3,6 +3,52 @@ import re
 import unicodedata
 from PIL import Image
 
+# Common reference list of Indian state and union territory names
+INDIAN_STATES = [
+    "ANDHRA PRADESH",
+    "ARUNACHAL PRADESH",
+    "ASSAM",
+    "BIHAR",
+    "CHHATTISGARH",
+    "GOA",
+    "GUJARAT",
+    "HARYANA",
+    "HIMACHAL PRADESH",
+    "JHARKHAND",
+    "KARNATAKA",
+    "KERALA",
+    "MADHYA PRADESH",
+    "MAHARASHTRA",
+    "MANIPUR",
+    "MEGHALAYA",
+    "MIZORAM",
+    "NAGALAND",
+    "ODISHA",
+    "PUNJAB",
+    "RAJASTHAN",
+    "SIKKIM",
+    "TAMIL NADU",
+    "TELANGANA",
+    "TRIPURA",
+    "UTTAR PRADESH",
+    "UTTARAKHAND",
+    "WEST BENGAL",
+    "ANDAMAN AND NICOBAR ISLANDS",
+    "CHANDIGARH",
+    "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+    "DELHI",
+    "JAMMU AND KASHMIR",
+    "LADAKH",
+    "LAKSHADWEEP",
+    "PUDUCHERRY",
+]
+
+# Regex pattern to match any of the above state names as whole words
+STATE_REGEX = re.compile(
+    r"\b(" + "|".join(re.escape(s) for s in INDIAN_STATES) + r")\b",
+    re.IGNORECASE,
+)
+
 def run_ocr(image_path):
     from google.cloud import vision  # Import inside function
     client = vision.ImageAnnotatorClient()  # Initialize here
@@ -137,18 +183,14 @@ def extract_states_from_blocks(lines):
         # print(f"🔍 At line {i}, cleaned line: '{clean_line}'")  # Log every line for debugging
 
         if clean_line == "from" and i + 2 < len(lines):
-            # print(f"📍 Found 'From' at line {i}: {line.strip()}")
-            # print(f"   Checking line {i+2} for state: {lines[i+2].strip()}")
-            match = re.search(r"\(([^)]+)\)", lines[i + 2])
+            match = STATE_REGEX.search(lines[i + 2])
             if match:
-                from_state = match.group(1).strip()
+                from_state = match.group(1).title()
 
         elif re.fullmatch(r"to", clean_line.strip()) and i + 2 < len(lines):
-            # print(f"📍 Found 'To' at line {i}: {line.strip()}")
-            # print(f"   Checking line {i+2} for state: {lines[i+2].strip()}")
-            match = re.search(r"\(([^)]+)\)", lines[i + 2])
+            match = STATE_REGEX.search(lines[i + 2])
             if match:
-                to_state = match.group(1).strip()
+                to_state = match.group(1).title()
 
 
     return from_state, to_state
