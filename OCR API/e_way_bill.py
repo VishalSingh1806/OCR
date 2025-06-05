@@ -1,5 +1,5 @@
 import re
-from ocr_utils import normalize_ascii, debug_print_lines
+from ocr_utils import normalize_ascii, debug_print_lines, INDIAN_STATES
 
 def extract_eway_bill_fields(text):
     print("\n🧾 Processing: E-Way Bill")
@@ -71,13 +71,13 @@ def extract_eway_bill_fields(text):
     for i, line in enumerate(lines):
         norm = normalize_ascii(line)
         if "dispatch from" in norm:
-            for j in range(i, i+5):
-                if j < len(lines) and any(st in lines[j].upper() for st in ["MAHARASHTRA", "GUJARAT", "DELHI", "TAMIL", "KARNATAKA"]):
+            for j in range(i, i + 5):
+                if j < len(lines) and any(st in lines[j].upper() for st in INDIAN_STATES):
                     result["From State"] = lines[j].strip().split()[-1].title()
                     break
         if "ship to" in norm:
-            for j in range(i, i+5):
-                if j < len(lines) and any(st in lines[j].upper() for st in ["MAHARASHTRA", "GUJARAT", "DELHI", "TAMIL", "KARNATAKA"]):
+            for j in range(i, i + 5):
+                if j < len(lines) and any(st in lines[j].upper() for st in INDIAN_STATES):
                     result["To State"] = lines[j].strip().split()[-1].title()
                     break
 

@@ -3,6 +3,46 @@ import re
 import unicodedata
 from PIL import Image
 
+# Common reference list of Indian state and union territory names
+INDIAN_STATES = [
+    "ANDHRA PRADESH",
+    "ARUNACHAL PRADESH",
+    "ASSAM",
+    "BIHAR",
+    "CHHATTISGARH",
+    "GOA",
+    "GUJARAT",
+    "HARYANA",
+    "HIMACHAL PRADESH",
+    "JHARKHAND",
+    "KARNATAKA",
+    "KERALA",
+    "MADHYA PRADESH",
+    "MAHARASHTRA",
+    "MANIPUR",
+    "MEGHALAYA",
+    "MIZORAM",
+    "NAGALAND",
+    "ODISHA",
+    "PUNJAB",
+    "RAJASTHAN",
+    "SIKKIM",
+    "TAMIL NADU",
+    "TELANGANA",
+    "TRIPURA",
+    "UTTAR PRADESH",
+    "UTTARAKHAND",
+    "WEST BENGAL",
+    "ANDAMAN AND NICOBAR ISLANDS",
+    "CHANDIGARH",
+    "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+    "DELHI",
+    "JAMMU AND KASHMIR",
+    "LADAKH",
+    "LAKSHADWEEP",
+    "PUDUCHERRY",
+]
+
 def run_ocr(image_path):
     from google.cloud import vision  # Import inside function
     client = vision.ImageAnnotatorClient()  # Initialize here
