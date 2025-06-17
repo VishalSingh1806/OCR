@@ -1,46 +1,17 @@
 import io
+from google.cloud import vision_v1 as vision
 import re
 import unicodedata
 from PIL import Image
 
 # Common reference list of Indian state and union territory names
-INDIAN_STATES = [
-    "ANDHRA PRADESH",
-    "ARUNACHAL PRADESH",
-    "ASSAM",
-    "BIHAR",
-    "CHHATTISGARH",
-    "GOA",
-    "GUJARAT",
-    "HARYANA",
-    "HIMACHAL PRADESH",
-    "JHARKHAND",
-    "KARNATAKA",
-    "KERALA",
-    "MADHYA PRADESH",
-    "MAHARASHTRA",
-    "MANIPUR",
-    "MEGHALAYA",
-    "MIZORAM",
-    "NAGALAND",
-    "ODISHA",
-    "PUNJAB",
-    "RAJASTHAN",
-    "SIKKIM",
-    "TAMIL NADU",
-    "TELANGANA",
-    "TRIPURA",
-    "UTTAR PRADESH",
-    "UTTARAKHAND",
-    "WEST BENGAL",
-    "ANDAMAN AND NICOBAR ISLANDS",
-    "CHANDIGARH",
-    "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
-    "DELHI",
-    "JAMMU AND KASHMIR",
-    "LADAKH",
-    "LAKSHADWEEP",
-    "PUDUCHERRY",
+INDIAN_STATES = ["ANDHRA PRADESH","ARUNACHAL PRADESH","ASSAM","BIHAR","CHHATTISGARH",
+    "GOA","GUJARAT","HARYANA","HIMACHAL PRADESH","JHARKHAND","KARNATAKA","KERALA",
+    "MADHYA PRADESH","MAHARASHTRA","MANIPUR","MEGHALAYA","MIZORAM","NAGALAND","ODISHA",
+    "PUNJAB","RAJASTHAN","SIKKIM","TAMIL NADU","TELANGANA","TRIPURA","UTTAR PRADESH",
+    "UTTARAKHAND","WEST BENGAL","ANDAMAN AND NICOBAR ISLANDS","CHANDIGARH","LAKSHADWEEP",
+    "DADRA AND NAGAR HAVELI AND DAMAN AND DIU","DELHI","LADAKH","PUDUCHERRY",
+    "JAMMU AND KASHMIR" 
 ]
 
 # Regex pattern to match any of the above state names as whole words
@@ -49,94 +20,154 @@ STATE_REGEX = re.compile(
     re.IGNORECASE,
 )
 
-def run_ocr(image_path):
-    from google.cloud import vision  # Import inside function
-    client = vision.ImageAnnotatorClient()  # Initialize here
-    with open(image_path, 'rb') as image_file:
+def run_ocr(image_path: str) -> str:
+    """
+    Opens the image at `image_path`, calls Vision’s document_text_detection(),
+    and returns the full-page text. Raises an exception if Vision returns an error.
+    """
+    client = vision.ImageAnnotatorClient()
+
+    # Load the image bytes
+    with io.open(image_path, "rb") as image_file:
         content = image_file.read()
     image = vision.Image(content=content)
-    response = client.text_detection(image=image)
-    return response.text_annotations[0].description if response.text_annotations else ""
 
-def classify_category(text):
-    text = text.lower()
+    # Directly request DOCUMENT_TEXT_DETECTION (no need to build AnnotateImageRequest manually)
+    response = client.document_text_detection(image=image)
+    if response.error.message:
+        # If Vision returned an error, propagate it
+        raise RuntimeError(f"Vision API error: {response.error.message}")
 
-    # Strong pattern for E-Way Bill — multiple keywords must exist
+    # Return the full detected text (or empty string if none)
+    return (
+        response.full_text_annotation.text
+        if response.full_text_annotation and response.full_text_annotation.text
+        else ""
+    )
+
+
+# def classify_category(text):
+#     text = text.lower()
+
+#     # Strong pattern for E-Way Bill — multiple keywords must exist
+#     if (
+#         ("eway bill" in text or "e-way bill" in text) and
+#         "generated date" in text and
+#         "vehicle" in text and
+#         "quantity" in text
+#         ):
+#         return "E Way Bill"
+#     elif "delivery challan" in text or "dc no" in text:
+#         return "Delivery Challan"
+#     elif "lr copy" in text or "lorry receipt" in text or "consignment note" in text:
+#         return "LR Copy"
+#     elif (
+#         "weighbridge" in text or 
+#         "nett wt" in text or "gross wt" in text or "tare wt" in text or
+#         "total net weight" in text or "mwb madarsa" in text or
+#         ("net" in text and "weight" in text)
+#     ):
+#         return "Weighbridge"
+#     elif "tax invoice" in text or "invoice no" in text:
+#         return "Tax Invoice"
+#     return "Unknown"
+
+def classify_category(raw_text: str) -> str:
+    """
+    Examines the entire OCR output (raw_text), normalizes it, and then
+    returns one of:
+      - "E Way Bill"
+      - "Delivery Challan"
+      - "LR Copy"
+      - "Weighbridge"
+      - "Tax Invoice"
+      - "Unknown"
+    """
+    if not raw_text:
+        return "Unknown"
+
+    text_norm = normalize_ascii(raw_text)
+
+    # 1) E-Way Bill: requires multiple distinct keywords
     if (
-        ("eway bill" in text or "e-way bill" in text) and
-        "generated date" in text and
-        "vehicle" in text and
-        "quantity" in text
+        ("eway bill" in text_norm or "e-way bill" in text_norm)
+        and "generated date" in text_norm
+        and "vehicle" in text_norm
+        and "quantity" in text_norm
     ):
         return "E Way Bill"
 
-    elif "delivery challan" in text or "dc no" in text:
+    # 2) Delivery Challan
+    if "delivery challan" in text_norm or "dc no" in text_norm:
         return "Delivery Challan"
-    elif "lr copy" in text or "lorry receipt" in text or "consignment note" in text:
+
+    # 3) LR Copy / Lorry Receipt
+    if "lr copy" in text_norm or "lorry receipt" in text_norm or "consignment note" in text_norm:
         return "LR Copy"
-    elif (
-        "weighbridge" in text or 
-        "nett wt" in text or "gross wt" in text or "tare wt" in text or
-        "total net weight" in text or "mwb madarsa" in text or
-        ("net" in text and "weight" in text)
+
+    # 4) Weighbridge: 
+    #    • If the page has BOTH “gross wt” and “tare wt” (unique to weighbridge slips),
+    #      OR if there is an explicit “weigh bridge” header (e.g. “ajanta weigh bridge”).
+    #    • We deliberately do NOT rely on the generic “net wt” check,
+    #      because “net weight” also appears on LR Copy and Tax Invoice.
+    if (
+        ("gross wt" in text_norm and "tare wt" in text_norm)
+        or re.search(r"weigh\s*bridge", text_norm)
     ):
         return "Weighbridge"
-    elif "tax invoice" in text or "invoice no" in text:
+
+    # 5) Tax Invoice
+    if "tax invoice" in text_norm or "invoice no" in text_norm:
         return "Tax Invoice"
 
     return "Unknown"
 
+# def normalize_ascii(text):
+#     # Replace known OCR or non-ASCII issues first (before ASCII stripping)
+#     replacements = {
+#         'Το': 'To',   # Greek Tau + Omicron
+#         'το': 'to',
+#         ' T0': 'To',  # T-zero
+#         ' t0': 'to',
+#         ' Tо': 'To',  # Cyrillic o
+#         ' tо': 'to',
+#         'tο': 'to',   # mix of Latin t + Greek omicron
+#         't o': 'to',
+#     }
 
-def normalize_ascii(text):
-    # Replace known OCR or non-ASCII issues first (before ASCII stripping)
+#     for wrong, right in replacements.items():
+#         text = text.replace(wrong, right)
+
+#     # Now normalize and strip accents
+#     nfkd = unicodedata.normalize('NFKD', text)
+#     only_ascii = nfkd.encode('ASCII', 'ignore').decode('utf-8')
+
+#     return only_ascii.lower().strip()
+
+
+def normalize_ascii(text: str) -> str:
+    """
+    1) Replace a few common OCR “look-alikes” (Greek/Cyrillic) for “to” or “To”.
+    2) Strip out any remaining non-ASCII accents/characters.
+    3) Lowercase + trim whitespace.
+    """
     replacements = {
-        'Το': 'To',   # Greek Tau + Omicron
+        'Το': 'To',   # Greek Tau + Omicron → Latin “To”
         'το': 'to',
-        ' T0': 'To',  # T-zero
+        ' T0': 'To',  # T + zero → “To”
         ' t0': 'to',
-        ' Tо': 'To',  # Cyrillic o
+        ' Tо': 'To',  # Cyrillic o → Latin “o”
         ' tо': 'to',
-        'tο': 'to',   # mix of Latin t + Greek omicron
+        'tο': 'to',   # mixed Latin ‘t’ + Greek omicron
         't o': 'to',
     }
-
     for wrong, right in replacements.items():
         text = text.replace(wrong, right)
 
-    # Now normalize and strip accents
     nfkd = unicodedata.normalize('NFKD', text)
     only_ascii = nfkd.encode('ASCII', 'ignore').decode('utf-8')
-
     return only_ascii.lower().strip()
 
-
-# def extract_consignment_no_near_header(lines):
-#     print("\n🔍 Debugging Consignment No Extraction")
-#     for i, line in enumerate(lines):
-#         print(f"Line {i}: '{line.strip()}'")
-#         if "CONSIGNMENT NOTE" in line.upper():
-#             print(f"📌 Found 'CONSIGNMENT NOTE' at line {i}")
-#             for j in range(1, 5):
-#                 if i + j >= len(lines):
-#                     continue
-#                 current_line = lines[i + j].strip()
-#                 print(f"🔎 Checking line {i + j}: '{current_line}'")
-
-#                 # Case 1: No.: 4137 on the same line
-#                 match = re.search(r"\bNO\.?\s*[:\-]?\s*([0-9A-Z\-\/]{3,})", current_line, re.IGNORECASE)
-#                 if match:
-#                     print(f"✅ Found consignment on same line: '{match.group(1)}'")
-#                     return match.group(1).strip()
-                
-#                 # Case 2: No. is alone, next line is value
-#                 if "NO" in current_line.upper() and i + j + 1 < len(lines):
-#                     next_line = lines[i + j + 1].strip()
-#                     print(f"👀 'NO' alone, checking line {i + j + 1}: '{next_line}'")
-#                     if re.match(r"^[0-9A-Z\-\/]{3,}$", next_line):
-#                         print(f"✅ Found consignment split over lines: '{current_line}' + '{next_line}'")
-#                         return next_line
-#     print("❌ Consignment No not found")
-#     return "Not found"
 
 def extract_consignment_no_using_date_proximity(lines):
     # print("\n🔍 Smart Consignment No Extraction via proximity")
@@ -205,16 +236,6 @@ def debug_print_lines(text, label="Debugging OCR Lines"):
     for i, line in enumerate(lines):
         print(f"Line {i}: '{line.strip()}'")
 
-
-
-# def extract_material_name_from_lines(text):
-#     lines = text.splitlines()
-#     for i in range(40, min(46, len(lines))):  # Line 40 to 45 inclusive
-#         line = lines[i].strip()
-#         match = re.match(r"\d+\s+(.+)", line)  # Matches lines like '1 PLASTIC SCRAP- FLEXIBLE'
-#         if match:
-#             return match.group(1).strip().title()
-#     return "Not found"
 
 def extract_material_name_from_lines(text):
     lines = text.splitlines()

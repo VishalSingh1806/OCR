@@ -8,10 +8,10 @@ from google.cloud import vision
 import unicodedata
 
 # Set your credentials path
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"D:/OCR with Vision/vision-api.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"D:\OCR with Vision\OCR API\vision-api.json"
 
 # Folder to scan
-FOLDER_PATH = r"C:\Users\visha\Downloads\January Movement-20241017T094850Z-001\January Movement\Gujarat\test\WB73B6961  30-1"
+FOLDER_PATH = r"C:\Users\visha\Downloads\ocr test"
 
 # Vision API client
 client = vision.ImageAnnotatorClient()
