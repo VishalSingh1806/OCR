@@ -14,4 +14,4 @@ asgiref
 python-socketio[asgi]
 fastapi-socketio
 google-cloud-vision
-
+opencv-python

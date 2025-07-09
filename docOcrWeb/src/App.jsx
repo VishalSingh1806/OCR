@@ -583,7 +583,7 @@ function App() {
       <div className="p-4 md:p-8 flex flex-col gap-4 md:gap-8">
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
-            <div className="text-2xl md:text-3xl">Recircle Document OCR</div>
+            <div className="text-2xl md:text-3xl">ReCircle Document OCR</div>
             <div className="text-sm md:text-lg pt-2 text-[#666]">
               <p className="font-semibold">Valid Format:</p>
               <p className="pl-2">

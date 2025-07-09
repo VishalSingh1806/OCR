@@ -40,11 +40,11 @@ def extract_lr_copy_fields(text):
         if numeric_vals:
             qty_val = f"{max(numeric_vals):,.3f} MT"
 
-        # print("📄 Consignment No.:", consignment_no)
-        # print("📮 Consignor:", consignor)
-        # print("📬 Consignee:", consignee)
-        # print("📍 From State:", from_state)
-        # print("📍 To State:", to_state)
+        print("📄 Consignment No.:", consignment_no)
+        print("📮 Consignor:", consignor)
+        print("📬 Consignee:", consignee)
+        print("📍 From State:", from_state)
+        print("📍 To State:", to_state)
 
     result.update({
         "Vehicle Number": find(vehicle_pattern),

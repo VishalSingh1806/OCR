@@ -5,7 +5,6 @@ import time
 from pdf2image import convert_from_path
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
-
 from ocr_utils import run_ocr, classify_category
 from delivery_challan import extract_delivery_challan_fields
 from lr_copy import extract_lr_copy_fields
