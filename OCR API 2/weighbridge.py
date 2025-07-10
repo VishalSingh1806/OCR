@@ -21,4 +21,9 @@ Respond ONLY in valid JSON format like this (do NOT wrap in triple backticks):
 }
 """
     expected_fields = ["Date", "Vehicle Number", "Name", "Material", "Net Weight (Tons)"]
-    return extract_fields_with_gemini(image_paths=image_paths, prompt=prompt, expected_fields=expected_fields, document_type="Weighbridge")
+    return extract_fields_with_gemini(
+        image_paths=image_paths, 
+        prompt=prompt, 
+        expected_fields=expected_fields, 
+        document_type="Weighbridge"
+    )

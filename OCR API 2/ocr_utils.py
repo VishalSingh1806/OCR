@@ -63,19 +63,23 @@ def classify_category(text: str) -> str:
         return "Delivery Challan"
 
     # ───── LR Copy / Consignment Note ─────
+    # MUST check *before* Tax Invoice
     if (
         "lr copy" in text_norm
         or "lorry receipt" in text_norm
         or "consignment note" in text_norm
-        or ("consignor" in text_norm and "consignee" in text_norm)
+        or re.search(r"\blr[\s\-]?no\b", text_norm)
     ):
         return "LR Copy"
 
     # ───── Tax Invoice ─────
+    # only if it has clear invoice markers *and* didn't already match LR
     if (
-        ("tax invoice" in text_norm or re.search(r"invoice[\s\-]?no", text_norm))
-        and ("gst" in text_norm or "total" in text_norm or "cgst" in text_norm or "sgst" in text_norm)
-        and not any(term in text_norm for term in ["consignor", "consignee", "lr copy", "lorry receipt", "consignment note"])
+        (
+            "tax invoice" in text_norm
+            or re.search(r"invoice[\s\-]?no", text_norm)
+        )
+        and re.search(r"\b(hsn|taxable value|total|gstin|pan)\b", text_norm)
     ):
         return "Tax Invoice"
 
