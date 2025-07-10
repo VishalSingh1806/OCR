@@ -34,7 +34,7 @@ def classify_category(text: str) -> str:
         return "Unknown"
     text_norm = normalize_ascii(text)
 
-    # Fuzzy match for weighbridge
+    # ───── Weighbridge ─────
     if (
         ("gross" in text_norm and "tare" in text_norm and "net" in text_norm)
         or "weighbridge" in text_norm
@@ -67,24 +67,24 @@ def classify_category(text: str) -> str:
         "lr copy" in text_norm
         or "lorry receipt" in text_norm
         or "consignment note" in text_norm
-        or "consignor" in text_norm and "consignee" in text_norm
+        or ("consignor" in text_norm and "consignee" in text_norm)
     ):
         return "LR Copy"
 
     # ───── Tax Invoice ─────
     if (
-        "tax invoice" in text_norm
-        or re.search(r"invoice[\s\-]?no", text_norm)
-        or ("gst" in text_norm and "invoice" in text_norm)
+        ("tax invoice" in text_norm or re.search(r"invoice[\s\-]?no", text_norm))
+        and ("gst" in text_norm or "total" in text_norm or "cgst" in text_norm or "sgst" in text_norm)
+        and not any(term in text_norm for term in ["consignor", "consignee", "lr copy", "lorry receipt", "consignment note"])
     ):
         return "Tax Invoice"
 
-    # fallback log
+    # ───── Fallback ─────
     import logging
     logger = logging.getLogger("ocr_backend")
-    logger.warning("❌ Could not classify document. Normalized OCR content:\n" + text_norm)
-
+    logger.warning("❌ Could not classify document. Normalized OCR content:\n" + text_norm[:500])
     return "Unknown"
+
 
 
 def normalize_ascii(text: str) -> str:
