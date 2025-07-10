@@ -25,11 +25,13 @@ def _img_to_part(image_path: str) -> types.Part:
     with open(image_path, "rb") as f:
         return types.Part.from_bytes(data=f.read(), mime_type="image/jpeg")
 
+
 def safe(val):
     """Turn any 'null'/'none' strings into empty, and non-str into empty str."""
     if isinstance(val, str) and val.strip().lower() in ("null", "none"):
         return ""
     return val if isinstance(val, str) else ""
+
 
 def _empty_result(fields: list[str], doc_type: str, error: str = "") -> OrderedDict:
     """Build an empty OrderedDict result when Gemini fails to return JSON."""
@@ -37,7 +39,6 @@ def _empty_result(fields: list[str], doc_type: str, error: str = "") -> OrderedD
     # metadata first
     od["Category"] = doc_type.title()
     od["Category Confidence"] = "0.0"
-    # od["Error"] = error
     # then placeholders for every expected field
     for key in fields:
         od[key] = ""
@@ -52,7 +53,7 @@ def extract_fields_with_gemini(
 ) -> OrderedDict:
     """
     Sends images + prompt to Gemini, parses JSON, and returns an OrderedDict
-    whose first keys are Category/Confidence/Error, then your expected_fields.
+    whose first keys are Category/Confidence, then your expected_fields.
     """
     logger.info(f"🚀 Running Gemini extraction for: {document_type}, files={len(image_paths)}")
 
@@ -95,10 +96,14 @@ def extract_fields_with_gemini(
         # 1) metadata
         od["Category"] = document_type.title()
         od["Category Confidence"] = "1.0"
-        # od["Error"] = ""
         # 2) your fields, in order
         for key in expected_fields:
-            od[key] = safe(parsed.get(key))
+            val = parsed.get(key)
+            if isinstance(val, (int, float)):
+                # preserve numeric values formatted to two decimals
+                od[key] = f"{val:.2f}"
+            else:
+                od[key] = safe(val)
 
         logger.info(f"✅ Parsed fields: {od}")
         return od

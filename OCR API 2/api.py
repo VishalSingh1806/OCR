@@ -10,11 +10,11 @@ from pdf2image import convert_from_path
 from google.cloud import vision
 
 from ocr_utils import classify_category
-from weighbridge import extract_weighbridge_fields
-from tax_invoice import extract_tax_invoice_fields
-from delivery_challan import extract_delivery_challan_fields
-from lr_copy import extract_lr_copy_fields
-# from e_way_bill import extract_eway_bill_fields_via_llm
+from modules.weighbridge import extract_weighbridge_fields
+from modules.tax_invoice import extract_tax_invoice_fields
+from modules.delivery_challan import extract_delivery_challan_fields
+from modules.lr_copy import extract_lr_copy_fields
+from modules.e_way_bill import extract_e_way_bill_fields
 
 UPLOAD_DIR = "uploads"
 TEMP_DIR = "temp_pages"
@@ -88,9 +88,9 @@ def _route_to_extractor(category: str, image_path: str):
         return extract_delivery_challan_fields([image_path])
     if category == "LR Copy":
         return extract_lr_copy_fields([image_path])
-    # if category == "E Way Bill":
-    #     return extract_eway_bill_fields_via_llm([image_path])
-    # return {"error": f"Unsupported category: {category}"}
+    if category == "E Way Bill":
+        return extract_e_way_bill_fields([image_path])
+    return {"error": f"Unsupported category: {category}"}
 
 async def _process_image_job(sid, job):
     await sio.emit("fileStatus", {
@@ -105,9 +105,9 @@ async def _process_image_job(sid, job):
         ocr_text = vision_client.document_text_detection(image=image).full_text_annotation.text
 
         # Debug OCR lines and normalized form
-        from ocr_utils import debug_print_lines, normalize_ascii
-        debug_print_lines(ocr_text, f"OCR Text for {job['file_name']}")
-        logger.info(f"🔡 Normalized OCR: {normalize_ascii(ocr_text)}")
+        # from ocr_utils import debug_print_lines, normalize_ascii
+        # debug_print_lines(ocr_text, f"OCR Text for {job['file_name']}")
+        # logger.info(f"🔡 Normalized OCR: {normalize_ascii(ocr_text)}")
 
         # Category detection
         category = classify_category(ocr_text)
