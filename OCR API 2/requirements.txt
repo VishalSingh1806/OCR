@@ -1,4 +1,4 @@
-fastapi 
+fastapi
 uvicorn
 python-multipart
 pdf2image
@@ -9,9 +9,18 @@ websockets
 httpx
 docstring-parser
 pyproject_hooks
-wrapt 
+wrapt
 asgiref
 python-socketio[asgi]
 fastapi-socketio
-google-cloud-vision
 opencv-python
+
+# Google Cloud APIs
+google-cloud-vision
+google-cloud-aiplatform>=1.38.0
+
+# Gemini 2.5 SDK support (pin compatible versions)
+google-generativeai==0.8.4
+google-ai-generativelanguage==0.6.15
+tqdm
+google-api-python-client
